@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meu Kanban Pessoal</title>
+    
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b4eee' /%3E%3Crect x='16' y='18' width='32' height='28' rx='3' fill='none' stroke='white' stroke-width='4' stroke-linejoin='round' /%3E%3Cline x1='28' y1='18' x2='28' y2='46' stroke='white' stroke-width='4' /%3E%3Cline x1='28' y1='32' x2='48' y2='32' stroke='white' stroke-width='4' /%3E%3C/svg%3E">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <script>
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            MobileDragDrop.polyfill({ holdToDrag: 200 });
+            window.addEventListener('touchmove', function() {}, {passive: false});
+        });
+    </script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; overscroll-behavior-y: contain; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        .dragging { opacity: 0.8; transform: scale(0.95) rotate(2deg); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2); z-index: 50; }
+        .column-drop-zone { transition: all 0.2s ease; min-height: 150px; }
+        .drag-over { background-color: rgba(226, 232, 240, 0.6); border: 2px dashed #94a3b8; border-radius: 0.5rem; }
+        .dark .drag-over { background-color: rgba(71, 85, 105, 0.4); border-color: #64748b; }
+
+        .modal-enter { opacity: 0; transform: scale(0.95); pointer-events: none; }
+        .modal-enter-active { opacity: 1; transform: scale(1); pointer-events: auto; transition: opacity 200ms ease-out, transform 200ms ease-out; }
+
+        .tab-active { background-color: white; box-shadow: 0 1px 2px rgba(0,0,0,0.05); color: #334155; pointer-events: none;}
+        .dark .tab-active { background-color: #475569; color: #f8fafc; }
+        .tab-inactive { color: #64748b; }
+        .tab-inactive:hover { color: #334155; }
+        .dark .tab-inactive { color: #94a3b8; }
+        .dark .tab-inactive:hover { color: #f8fafc; }
+
+        @media (hover: none) and (pointer: coarse) {
+            .hide-scrollbar::-webkit-scrollbar { display: none; }
+            .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        }
+
+        /* FullCalendar Customizations */
+        .fc { font-family: 'Inter', sans-serif; }
+        .fc-toolbar-title { font-size: 1.25rem !important; font-weight: 700 !important; color: #1e293b; }
+        .dark .fc-toolbar-title { color: #f8fafc; }
+        .fc-button-primary { background-color: #4f46e5 !important; border-color: #4f46e5 !important; border-radius: 0.5rem !important; text-transform: capitalize !important;}
+        .fc-button-primary:hover { background-color: #4338ca !important; border-color: #4338ca !important; }
+        .fc-button-primary:not(:disabled).fc-button-active, .fc-button-primary:not(:disabled):active { background-color: #3730a3 !important; border-color: #3730a3 !important; }
+        .fc-theme-standard th { padding: 8px 0; border-color: #e2e8f0; color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        .dark .fc-theme-standard th { border-color: #334155; color: #94a3b8; }
+        .fc-theme-standard td, .fc-theme-standard th { border-color: #e2e8f0; }
+        .dark .fc-theme-standard td, .dark .fc-theme-standard th { border-color: #334155; }
+        .fc-daygrid-day-number { color: #475569; font-weight: 500; padding: 8px !important; }
+        .dark .fc-daygrid-day-number { color: #cbd5e1; }
+        .fc-day-today { background-color: #f8fafc !important; }
+        .dark .fc-day-today { background-color: #1e293b !important; }
+        .fc-event { border-radius: 6px !important; padding: 2px 4px !important; font-size: 0.75rem !important; font-weight: 600 !important; border: none !important; cursor: pointer; transition: transform 0.1s; }
+        .fc-event:hover { transform: scale(1.02); filter: brightness(0.95); }
+        .fc-daygrid-dot-event { padding: 4px !important; }
+        .fc-daygrid-event-dot { display: none; }
+        
+        .toast-enter { transform: translateY(100%); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .toast-leave { transform: translateY(100%); opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body class="text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-900 h-screen flex flex-col overflow-hidden transition-colors duration-200">
+
+    <div class="hidden bg-slate-50 border-slate-200 text-slate-700 bg-slate-400 bg-slate-200 bg-slate-100 text-slate-600 bg-blue-50 border-blue-200 text-blue-700 bg-blue-500 bg-blue-200 bg-blue-100/50 bg-blue-100 bg-emerald-50 border-emerald-200 text-emerald-700 bg-emerald-500 bg-emerald-200 bg-emerald-100/50 bg-emerald-100 bg-amber-50 border-amber-200 text-amber-700 bg-amber-500 bg-amber-200 bg-amber-100/50 bg-amber-100 bg-rose-50 border-rose-200 text-rose-700 bg-rose-500 bg-rose-200 bg-rose-100/50 bg-rose-100 bg-purple-50 border-purple-200 text-purple-700 bg-purple-500 bg-purple-200 bg-purple-100/50 bg-purple-100 text-red-700 text-emerald-700 text-amber-700 text-orange-700 bg-red-100 border-red-200 border-emerald-200 border-amber-200 border-orange-200 bg-orange-100"></div>
+
+    <!-- Header -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 p-3 sm:p-4 flex flex-col lg:flex-row items-center justify-between gap-3 shrink-0 transition-colors duration-200 relative z-20 shadow-sm">
+        
+        <div class="flex items-center w-full lg:w-1/3 justify-center lg:justify-start">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 sm:w-10 sm:h-10 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" class="w-full h-full drop-shadow-sm">
+                        <rect width="64" height="64" rx="16" fill="#5b4eee" />
+                        <rect x="16" y="18" width="32" height="28" rx="3" fill="none" stroke="white" stroke-width="4" stroke-linejoin="round" />
+                        <line x1="28" y1="18" x2="28" y2="46" stroke="white" stroke-width="4" />
+                        <line x1="28" y1="32" x2="48" y2="32" stroke="white" stroke-width="4" />
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold text-slate-800 dark:text-white truncate tracking-tight">Meu Kanban</h1>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full lg:w-1/3 justify-center">
+            <button onclick="toggleDarkMode()" class="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 w-10 h-10 rounded-xl flex items-center justify-center transition-all shadow-sm shrink-0">
+                <i id="theme-icon" class="ph ph-moon text-xl"></i>
+            </button>
+            
+            <div class="flex items-center w-full sm:w-auto bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 border border-transparent dark:border-slate-700 overflow-x-auto hide-scrollbar">
+                <button onclick="switchView('board')" id="tab-board" class="tab-active flex-1 sm:flex-none px-3 py-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-all flex justify-center items-center gap-1.5 whitespace-nowrap">
+                    <i class="ph ph-kanban text-lg"></i><span>Quadro</span>
+                </button>
+                <button onclick="switchView('deadline')" id="tab-deadline" class="tab-inactive flex-1 sm:flex-none px-3 py-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-all flex justify-center items-center gap-1.5 whitespace-nowrap">
+                    <i class="ph ph-list-numbers text-lg"></i><span>Prazos</span>
+                </button>
+                <button onclick="switchView('calendar')" id="tab-calendar" class="tab-inactive flex-1 sm:flex-none px-3 py-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-all flex justify-center items-center gap-1.5 whitespace-nowrap">
+                    <i class="ph ph-calendar text-lg"></i><span>Agenda</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full lg:w-1/3 justify-center lg:justify-end" id="header-actions">
+            <!-- Ações dinâmicas injetadas aqui -->
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden relative bg-slate-50 dark:bg-slate-900 transition-colors duration-200">
+        <!-- Visualização do Quadro -->
+        <div id="board-view" class="h-full w-full absolute inset-0 transition-opacity duration-300 hide-scrollbar overflow-y-hidden overflow-x-auto snap-x snap-mandatory">
+            <div id="board-container" class="flex gap-4 sm:gap-6 h-full items-start px-4 sm:px-6 py-6 min-w-max"></div>
+        </div>
+
+        <!-- Visualização de Prazos -->
+        <div id="deadline-view" class="h-full w-full overflow-y-auto p-4 sm:p-6 absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300">
+            <div class="max-w-4xl mx-auto">
+                <div class="mb-6 flex items-center gap-3">
+                    <div class="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center shrink-0">
+                        <i class="ph ph-list-numbers text-2xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800 dark:text-white leading-tight">Lista de Prazos</h2>
+                        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">Tarefas do quadro ordenadas por urgência.</p>
+                    </div>
+                </div>
+                <div id="deadline-container" class="flex flex-col gap-3 pb-10"></div>
+            </div>
+        </div>
+
+        <!-- Visualização do Calendário -->
+        <div id="calendar-view" class="h-full w-full overflow-y-auto p-2 sm:p-6 absolute inset-0 opacity-0 pointer-events-none transition-opacity duration-300 bg-white dark:bg-slate-900">
+            <div class="max-w-6xl mx-auto h-full flex flex-col">
+                <div id="calendar" class="flex-1 min-h-[500px]"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modais (Ocultos por padrão) -->
+    
+    <!-- Modal de Tarefa -->
+    <div id="taskModal" class="fixed inset-0 bg-slate-900/60 dark:bg-slate-900/80 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity p-4" onclick="if(event.target === this) closeTaskModal()">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto flex flex-col modal-enter transition-colors border border-transparent dark:border-slate-700" id="taskModalContent">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-white flex items-center gap-2" id="taskModalTitle"><i class="ph ph-card-text text-indigo-500"></i> Nova Tarefa</h3>
+                <button onclick="closeTaskModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 bg-white dark:bg-slate-700 rounded-full shadow-sm"><i class="ph ph-x text-xl"></i></button>
+            </div>
+            <form id="taskForm" class="p-5 flex flex-col gap-4">
+                <input type="hidden" id="taskId">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título da Tarefa *</label>
+                    <input type="text" id="taskTitle" required placeholder="Ex: Relatório Mensal" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-base sm:text-sm text-slate-800 dark:text-white">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Status</label>
+                        <select id="taskColumnSelect" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-base sm:text-sm text-slate-800 dark:text-white appearance-none cursor-pointer"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Prazo Final</label>
+                        <input type="datetime-local" id="taskDueDate" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-base sm:text-sm text-slate-800 dark:text-white [color-scheme:light] dark:[color-scheme:dark] cursor-pointer">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição</label>
+                    <textarea id="taskDesc" rows="3" placeholder="Detalhes adicionais..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all resize-none text-base sm:text-sm text-slate-800 dark:text-white"></textarea>
+                </div>
+                <div class="pt-2 flex gap-3 justify-end mt-2">
+                    <button type="button" onclick="closeTaskModal()" class="px-5 py-2.5 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-medium transition-colors">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors shadow-md shadow-indigo-200 dark:shadow-none">Salvar Tarefa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Evento (Calendário) -->
+    <div id="eventModal" class="fixed inset-0 bg-slate-900/60 dark:bg-slate-900/80 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity p-4" onclick="if(event.target === this) closeEventModal()">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto flex flex-col modal-enter transition-colors border border-transparent dark:border-slate-700" id="eventModalContent">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-white flex items-center gap-2" id="eventModalTitle"><i class="ph ph-calendar-star text-indigo-500"></i> Novo Evento</h3>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="shareEventBtn" onclick="shareEvent()" class="hidden text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 p-1.5 rounded-lg transition-colors" title="Compartilhar Código"><i class="ph ph-share-network text-xl"></i></button>
+                    <button onclick="closeEventModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 bg-white dark:bg-slate-700 rounded-full shadow-sm"><i class="ph ph-x text-xl"></i></button>
+                </div>
+            </div>
+            <form id="eventForm" class="p-5 flex flex-col gap-4">
+                <input type="hidden" id="eventId">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título do Evento *</label>
+                    <input type="text" id="eventTitle" required placeholder="Ex: Aniversário da Namorada" class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-base sm:text-sm text-slate-800 dark:text-white">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Início *</label>
+                        <input type="datetime-local" id="eventStart" required class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-white [color-scheme:light] dark:[color-scheme:dark] cursor-pointer">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Fim *</label>
+                        <input type="datetime-local" id="eventEnd" required class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-xs sm:text-sm text-slate-800 dark:text-white [color-scheme:light] dark:[color-scheme:dark] cursor-pointer">
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <i class="ph ph-bell-ringing text-amber-500 text-lg"></i>
+                            <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Ativar Lembrete (Notificação)</span>
+                        </div>
+                        <input type="checkbox" id="eventReminderToggle" class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" onchange="toggleReminderOptions()">
+                    </label>
+                    
+                    <div id="reminderOptions" class="hidden mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 flex items-center gap-2">
+                        <span class="text-sm text-slate-600 dark:text-slate-400">Avisar</span>
+                        <input type="number" id="reminderValue" value="15" min="1" class="w-16 px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-sm text-center outline-none">
+                        <select id="reminderUnit" class="px-2 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-sm outline-none">
+                            <option value="m">Minutos</option>
+                            <option value="h">Horas</option>
+                            <option value="d">Dias</option>
+                        </select>
+                        <span class="text-sm text-slate-600 dark:text-slate-400">antes</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Cor do Evento</label>
+                    <div class="flex gap-2" id="eventColorPicker"></div>
+                    <input type="hidden" id="eventTheme" value="blue" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição</label>
+                    <textarea id="eventDesc" rows="2" placeholder="Informações do evento..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all resize-none text-base sm:text-sm text-slate-800 dark:text-white"></textarea>
+                </div>
+
+                <div class="pt-2 flex gap-3 justify-end mt-2">
+                    <button type="button" id="deleteEventBtn" onclick="requestDeleteEvent()" class="hidden px-4 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 rounded-xl font-medium transition-colors mr-auto"><i class="ph ph-trash text-lg"></i></button>
+                    <button type="button" onclick="closeEventModal()" class="px-5 py-2.5 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-medium transition-colors">Cancelar</button>
+                    <button type="submit" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors shadow-md shadow-indigo-200 dark:shadow-none">Salvar Evento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Importar Evento -->
+    <div id="importModal" class="fixed inset-0 bg-slate-900/60 dark:bg-slate-900/80 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity p-4" onclick="if(event.target === this) closeImportModal()">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col modal-enter transition-colors" id="importModalContent">
+            <div class="p-6">
+                <div class="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center mb-4">
+                    <i class="ph ph-download-simple text-2xl"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800 dark:text-white mb-2">Importar Evento</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Cole abaixo o código mágico fornecido pelo seu amigo.</p>
+                <textarea id="importCodeInput" rows="3" placeholder='{"id":"event_..."}' class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono mb-4 text-slate-600 dark:text-slate-400 outline-none focus:border-indigo-500 resize-none"></textarea>
+                <div class="flex gap-3 w-full">
+                    <button type="button" onclick="closeImportModal()" class="flex-1 px-4 py-2 text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-medium transition-colors">Cancelar</button>
+                    <button type="button" onclick="executeImport()" class="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors">Importar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Colunas -->
+    <div id="columnModal" class="fixed inset-0 bg-slate-900/60 dark:bg-slate-900/80 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity p-4" onclick="if(event.target === this) closeColumnModal()">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto flex flex-col modal-enter transition-colors border border-transparent dark:border-slate-700" id="columnModalContent">
+            <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
+                <h3 class="font-semibold text-lg text-slate-800 dark:text-white" id="columnModalTitle">Criar Nova Coluna</h3>
+                <button onclick="closeColumnModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 bg-white dark:bg-slate-700 rounded-full shadow-sm">
+                    <i class="ph ph-x text-xl"></i>
+                </button>
+            </div>
+            <form id="columnForm" class="p-5 flex flex-col gap-4">
+                <input type="hidden" id="columnId">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nome da Coluna *</label>
+                    <input type="text" id="columnName" required placeholder="Ex: Ideias, Revisão..." class="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-800 outline-none transition-all text-base sm:text-sm text-slate-800 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Cor do Tema</label>
+                    <div class="grid grid-cols-3 gap-2 sm:gap-3" id="colorPicker"></div>
+                    <input type="hidden" id="columnTheme" value="slate" required>
+                </div>
+                <div class="pt-2 flex gap-3 justify-end mt-2">
+                    <button type="button" onclick="closeColumnModal()" class="px-5 py-2.5 text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-medium transition-colors">Cancelar</button>
+                    <button type="submit" id="columnSubmitBtn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors shadow-md shadow-indigo-200 dark:shadow-none">Criar Coluna</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/60 dark:bg-slate-900/80 hidden items-center justify-center z-50 backdrop-blur-sm transition-opacity p-4 z-[60]" onclick="if(event.target === this) closeConfirm()">
+        <div id="confirmModalContent" class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col modal-enter transition-colors border border-transparent dark:border-slate-700">
+            <div class="p-6 flex flex-col items-center text-center">
+                <div class="w-14 h-14 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center mb-4">
+                    <i class="ph ph-warning-circle text-3xl"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800 dark:text-white mb-2" id="confirmTitle">Atenção</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6" id="confirmMessage">Tem certeza que deseja realizar esta ação?</p>
+                <div class="flex gap-3 w-full">
+                    <button type="button" onclick="closeConfirm()" class="flex-1 px-4 py-2.5 text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-xl font-medium transition-colors">Cancelar</button>
+                    <button type="button" onclick="executeConfirm()" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors">Sim, excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container para Toasts (Notificações Flutuantes) -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-[70] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // CORE E DADOS
+        const THEMES = {
+            slate: { name: 'Cinza', bg: 'bg-slate-50 dark:bg-slate-800/40', border: 'border-slate-200 dark:border-slate-700', text: 'text-slate-700 dark:text-slate-300', dot: 'bg-slate-400 dark:bg-slate-500', badgeBg: 'bg-slate-200 dark:bg-slate-700', badgeText: 'text-slate-700 dark:text-slate-300', headerBg: 'bg-slate-100 dark:bg-slate-800/80', hex: '#64748b' },
+            blue: { name: 'Azul', bg: 'bg-blue-50 dark:bg-blue-900/10', border: 'border-blue-200 dark:border-blue-800/50', text: 'text-blue-700 dark:text-blue-400', dot: 'bg-blue-500', badgeBg: 'bg-blue-200 dark:bg-blue-900/50', badgeText: 'text-blue-700 dark:text-blue-300', headerBg: 'bg-blue-100/50 dark:bg-blue-900/30', hex: '#3b82f6' },
+            emerald: { name: 'Verde', bg: 'bg-emerald-50 dark:bg-emerald-900/10', border: 'border-emerald-200 dark:border-emerald-800/50', text: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500', badgeBg: 'bg-emerald-200 dark:bg-emerald-900/50', badgeText: 'text-emerald-700 dark:text-emerald-300', headerBg: 'bg-emerald-100/50 dark:bg-emerald-900/30', hex: '#10b981' },
+            amber: { name: 'Amarelo', bg: 'bg-amber-50 dark:bg-amber-900/10', border: 'border-amber-200 dark:border-amber-800/50', text: 'text-amber-700 dark:text-amber-400', dot: 'bg-amber-500', badgeBg: 'bg-amber-200 dark:bg-amber-900/50', badgeText: 'text-amber-700 dark:text-amber-300', headerBg: 'bg-amber-100/50 dark:bg-amber-900/30', hex: '#f59e0b' },
+            rose: { name: 'Rosa', bg: 'bg-rose-50 dark:bg-rose-900/10', border: 'border-rose-200 dark:border-rose-800/50', text: 'text-rose-700 dark:text-rose-400', dot: 'bg-rose-500', badgeBg: 'bg-rose-200 dark:bg-rose-900/50', badgeText: 'text-rose-700 dark:text-rose-300', headerBg: 'bg-rose-100/50 dark:bg-rose-900/30', hex: '#f43f5e' },
+            purple: { name: 'Roxo', bg: 'bg-purple-50 dark:bg-purple-900/10', border: 'border-purple-200 dark:border-purple-800/50', text: 'text-purple-700 dark:text-purple-400', dot: 'bg-purple-500', badgeBg: 'bg-purple-200 dark:bg-purple-900/50', badgeText: 'text-purple-700 dark:text-purple-300', headerBg: 'bg-purple-100/50 dark:bg-purple-900/30', hex: '#a855f7' }
+        };
+
+        let tasks = [];
+        let columns = [];
+        let events = []; // Array isolado para a agenda
+        
+        let draggedTaskId = null;
+        let draggedColId = null;
+        let confirmAction = null;
+        let lastDragEndTime = 0;
+        let currentView = 'board';
+        let calendar = null;
+
+        function loadData() {
+            try {
+                const savedTasks = localStorage.getItem('kanban_tasks_v3');
+                const savedCols = localStorage.getItem('kanban_cols_v3');
+                const savedEvents = localStorage.getItem('kanban_events_v2');
+
+                if (savedCols) columns = JSON.parse(savedCols);
+                else columns = [{ id: 'col_todo', name: 'A Fazer', theme: 'slate' }, { id: 'col_doing', name: 'Fazendo', theme: 'blue' }, { id: 'col_done', name: 'Concluído', theme: 'emerald' }];
+
+                if (savedTasks) tasks = JSON.parse(savedTasks);
+                else tasks = [];
+                
+                if (savedEvents) events = JSON.parse(savedEvents);
+                else events = [];
+
+                saveData();
+            } catch (e) {
+                columns = []; tasks = []; events = [];
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('kanban_cols_v3', JSON.stringify(columns));
+            localStorage.setItem('kanban_tasks_v3', JSON.stringify(tasks));
+            localStorage.setItem('kanban_events_v2', JSON.stringify(events));
+        }
+
+        // --- SISTEMA DE LEMBRETE E NOTIFICAÇÃO (TRUQUE DO BIPE E ABA PISCANDO) ---
+        let blinkInterval = null;
+        const originalTitle = "Meu Kanban Pessoal";
+
+        function playBeep() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); 
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
+                osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+        }
+
+        function startTabBlink(msg) {
+            if(blinkInterval) clearInterval(blinkInterval);
+            let showMsg = true;
+            blinkInterval = setInterval(() => {
+                document.title = showMsg ? `🔔 ${msg}` : originalTitle;
+                showMsg = !showMsg;
+            }, 1000);
+        }
+
+        function stopTabBlink() {
+            if(blinkInterval) clearInterval(blinkInterval);
+            blinkInterval = null;
+            document.title = originalTitle;
+        }
+
+        window.addEventListener('focus', stopTabBlink);
+        document.addEventListener('click', stopTabBlink);
+
+        function triggerNotification(title, body) {
+            playBeep();
+            startTabBlink("LEMBRETE!");
+            showToast(title, body, 'info');
+
+            // Tenta notificação nativa por desencargo de consciência
+            if ("Notification" in window && Notification.permission === "granted") {
+                try {
+                    const sysNotif = new Notification(title, { 
+                        body: body, requireInteraction: true,
+                        icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b4eee' /%3E%3Crect x='16' y='18' width='32' height='28' rx='3' fill='none' stroke='white' stroke-width='4' stroke-linejoin='round' /%3E%3C/svg%3E" 
+                    });
+                    sysNotif.onclick = function() {
+                        window.focus();
+                        this.close();
+                    };
+                } catch(e){}
+            }
+        }
+
+        function checkReminders() {
+            const now = new Date();
+            let hasChanges = false;
+
+            events.forEach(ev => {
+                if (ev.reminder && !ev.reminderSent) {
+                    const eventStart = new Date(ev.start);
+                    const remTime = ev.reminder;
+                    let targetTime = new Date(eventStart);
+
+                    if (remTime.unit === 'm') targetTime.setMinutes(targetTime.getMinutes() - remTime.value);
+                    else if (remTime.unit === 'h') targetTime.setHours(targetTime.getHours() - remTime.value);
+                    else if (remTime.unit === 'd') targetTime.setDate(targetTime.getDate() - remTime.value);
+
+                    if (now >= targetTime && now < eventStart) {
+                        triggerNotification('Lembrete de Evento', `"${ev.title}" começa em breve!`);
+                        ev.reminderSent = true;
+                        hasChanges = true;
+                    }
+                }
+            });
+
+            if (hasChanges) saveData();
+        }
+
+        // Checa de 15 em 15 segundos
+        setInterval(checkReminders, 15000);
+
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
+        // --- SISTEMA DE TOASTS (Avisos Visuais) ---
+        function showToast(title, message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-900/80 dark:border-emerald-700 dark:text-emerald-100',
+                info: 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/80 dark:border-blue-700 dark:text-blue-100',
+                error: 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/80 dark:border-red-700 dark:text-red-100'
+            };
+            const icons = { success: 'ph-check-circle', info: 'ph-info', error: 'ph-warning-circle' };
+
+            toast.className = `p-4 rounded-xl border shadow-lg flex items-start gap-3 w-80 toast-enter ${colors[type]} pointer-events-auto backdrop-blur-sm`;
+            toast.innerHTML = `
+                <i class="ph ${icons[type]} text-2xl shrink-0 mt-0.5"></i>
+                <div class="flex-1">
+                    <h4 class="font-bold text-sm mb-0.5">${title}</h4>
+                    <p class="text-xs opacity-90">${message}</p>
+                </div>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => { toast.classList.remove('toast-enter'); toast.classList.add('toast-enter-active'); }, 10);
+            setTimeout(() => {
+                toast.classList.remove('toast-enter-active'); toast.classList.add('toast-leave');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // --- UTILITÁRIOS GERAIS ---
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark'); localStorage.theme = 'light';
+            } else {
+                html.classList.add('dark'); localStorage.theme = 'dark';
+            }
+            initThemeIcon();
+            if(currentView === 'calendar' && calendar) calendar.render(); // Força update do tema do calendário
+        }
+
+        function initThemeIcon() {
+            const icon = document.getElementById('theme-icon');
+            icon.className = document.documentElement.classList.contains('dark') ? 'ph ph-sun text-xl' : 'ph ph-moon text-xl';
+        }
+
+        function formatDateToBR(dateString) {
+            if (!dateString) return '';
+            return new Date(dateString).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function getTimeRemaining(dateString) {
+            if (!dateString) return null;
+            const now = new Date(); const target = new Date(dateString);
+            const diffMs = target - now; const isOverdue = diffMs < 0; const absDiff = Math.abs(diffMs);
+            const diffDays = Math.floor(absDiff / (1000 * 60 * 60 * 24));
+            const diffHours = Math.floor((absDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const diffMinutes = Math.floor((absDiff % (1000 * 60 * 60)) / (1000 * 60));
+
+            let timeStr = '';
+            if (diffDays > 0) timeStr = `${diffDays}d ${diffHours}h`;
+            else if (diffHours > 0) timeStr = `${diffHours}h ${diffMinutes}m`;
+            else timeStr = `${diffMinutes}m`;
+
+            if (isOverdue) return { text: `Atrasado há ${timeStr}`, colorClass: "text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50", icon: "ph-warning-circle" };
+            if (diffDays > 2) return { text: `Faltam ${timeStr}`, colorClass: "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50", icon: "ph-clock" };
+            if (diffDays > 0) return { text: `Faltam ${timeStr}`, colorClass: "text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/50", icon: "ph-clock" };
+            return { text: `Termina em ${timeStr}`, colorClass: "text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-900/50", icon: "ph-clock-countdown" };
+        }
+
+        function isDoneColumn(colName) {
+            const lowerName = colName.toLowerCase();
+            return ['concluíd', 'concluid', 'feito', 'pronto', 'finalizad', 'done'].some(k => lowerName.includes(k));
+        }
+
+        // --- NAVEGAÇÃO DE ABAS ---
+        function switchView(view) {
+            currentView = view;
+            const views = ['board', 'deadline', 'calendar'];
+            const activeClass = "tab-active flex-1 sm:flex-none px-3 py-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-all flex justify-center items-center gap-1.5 whitespace-nowrap";
+            const inactiveClass = "tab-inactive flex-1 sm:flex-none px-3 py-2 rounded-lg text-[13px] sm:text-sm font-semibold transition-all flex justify-center items-center gap-1.5 whitespace-nowrap";
+
+            views.forEach(v => {
+                const el = document.getElementById(`${v}-view`);
+                const tab = document.getElementById(`tab-${v}`);
+                if (v === view) {
+                    el.classList.remove('opacity-0', 'pointer-events-none');
+                    tab.className = activeClass;
+                } else {
+                    el.classList.add('opacity-0', 'pointer-events-none');
+                    tab.className = inactiveClass;
+                }
+            });
+
+            updateHeaderActions();
+
+            if (view === 'board') renderBoard();
+            else if (view === 'deadline') renderDeadlineView();
+            else if (view === 'calendar') renderCalendarView();
+        }
+
+        function updateHeaderActions() {
+            const container = document.getElementById('header-actions');
+            const btnClass = "flex-1 sm:flex-none justify-center px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm whitespace-nowrap text-sm sm:text-base";
+            
+            if (currentView === 'board' || currentView === 'deadline') {
+                container.innerHTML = `
+                    <button onclick="openColumnModal()" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 ${btnClass}">
+                        <i class="ph ph-columns text-lg"></i> <span class="hidden sm:inline">Nova Coluna</span>
+                    </button>
+                    <button onclick="openTaskModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white ${btnClass}">
+                        <i class="ph ph-plus-circle text-lg"></i> <span>Nova Tarefa</span>
+                    </button>
+                `;
+            } else if (currentView === 'calendar') {
+                container.innerHTML = `
+                    <button onclick="openImportModal()" class="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 ${btnClass}" title="Importar evento de um amigo">
+                        <i class="ph ph-download-simple text-lg"></i> <span class="hidden sm:inline">Importar</span>
+                    </button>
+                    <button onclick="openEventModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white ${btnClass}">
+                        <i class="ph ph-calendar-plus text-lg"></i> <span>Novo Evento</span>
+                    </button>
+                `;
+            }
+        }
+
+        function refreshActiveView() {
+            if (currentView === 'board') renderBoard();
+            else if (currentView === 'deadline') renderDeadlineView();
+            else if (currentView === 'calendar') { if(calendar) calendar.refetchEvents(); }
+        }
+
+        // --- RENDER BOARD ---
+        function renderBoard() {
+            const container = document.getElementById('board-container'); container.innerHTML = '';
+            if (columns.length === 0) {
+                container.innerHTML = `<div class="w-full flex flex-col items-center justify-center mt-20 text-slate-400 dark:text-slate-500"><i class="ph ph-kanban text-6xl mb-4"></i><p>Nenhuma coluna encontrada. Crie uma para começar!</p></div>`;
+                return;
+            }
+
+            columns.forEach(col => {
+                const theme = THEMES[col.theme] || THEMES.slate;
+                const colTasks = tasks.filter(t => t.columnId === col.id);
+                const colWrapper = document.createElement('div');
+                colWrapper.className = `board-column snap-center w-[85vw] sm:w-80 max-w-[320px] shrink-0 ${theme.bg} border ${theme.border} rounded-2xl flex flex-col h-full max-h-full shadow-sm transition-all duration-200`;
+                colWrapper.draggable = true; colWrapper.setAttribute('data-col-id', col.id);
+
+                colWrapper.innerHTML = `
+                    <div class="p-4 border-b ${theme.border} flex justify-between items-center ${theme.headerBg} rounded-t-2xl group cursor-grab active:cursor-grabbing">
+                        <h2 class="font-bold flex items-center gap-2 ${theme.text} truncate pr-2 pointer-events-none">
+                            <i class="ph ph-dots-six-vertical text-lg opacity-50 hidden sm:block"></i>
+                            <div class="w-3 h-3 rounded-full ${theme.dot} shrink-0"></div>
+                            <span class="truncate">${col.name}</span>
+                        </h2>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <span class="bg-white/60 dark:bg-slate-900/40 ${theme.text} text-xs font-bold px-2.5 py-0.5 rounded-full border border-white/50 dark:border-slate-700/50 shadow-sm mr-1">${colTasks.length}</span>
+                            <button onclick="event.stopPropagation(); openColumnModal('${col.id}')" class="text-slate-400 dark:text-slate-500 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1" title="Editar Coluna"><i class="ph ph-pencil-simple text-lg pointer-events-none"></i></button>
+                            <button onclick="requestDeleteColumn(event, '${col.id}')" class="text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity p-1" title="Apagar Coluna"><i class="ph ph-trash text-lg pointer-events-none"></i></button>
+                        </div>
+                    </div>
+                    <div id="${col.id}" class="column-drop-zone flex-1 overflow-y-auto p-3 space-y-3" data-column-id="${col.id}"></div>
+                `;
+                container.appendChild(colWrapper);
+                colWrapper.addEventListener('dragstart', handleColDragStart); colWrapper.addEventListener('dragend', handleColDragEnd); colWrapper.addEventListener('dragover', handleColDragOver); colWrapper.addEventListener('dragleave', handleColDragLeave); colWrapper.addEventListener('drop', handleColDrop);
+                const dropZone = colWrapper.querySelector('.column-drop-zone');
+                dropZone.addEventListener('dragover', handleDragOver); dropZone.addEventListener('dragleave', handleDragLeave); dropZone.addEventListener('drop', handleDrop);
+                colTasks.forEach(task => dropZone.appendChild(createCardElement(task, theme)));
+            });
+        }
+
+        function createCardElement(task, theme) {
+            const div = document.createElement('div');
+            div.className = 'kanban-card bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 cursor-grab active:cursor-grabbing hover:shadow-md transition-all relative group touch-manipulation select-none';
+            div.draggable = true; div.id = task.id;
+
+            const timeInfo = getTimeRemaining(task.dueDate);
+            const badgeHTML = timeInfo ? `<div class="mt-3 mb-1 flex items-center gap-1.5 text-[11px] font-bold border px-2 py-1 rounded-md w-fit shadow-sm pointer-events-none ${timeInfo.colorClass}"><i class="ph ${timeInfo.icon}"></i><span>${timeInfo.text}</span></div>` : '';
+
+            div.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <div class="w-12 h-1.5 rounded-full ${theme.dot} opacity-60 mb-2"></div>
+                    <button onclick="requestDeleteTask(event, '${task.id}')" class="text-slate-300 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-100 sm:opacity-0 group-hover:opacity-100 z-10 relative bg-slate-50 dark:bg-slate-700 rounded-full p-1.5 sm:p-1 -mt-2 -mr-2 shadow-sm border border-slate-100 dark:border-slate-600" title="Apagar tarefa"><i class="ph ph-trash pointer-events-none text-base sm:text-sm"></i></button>
+                </div>
+                <h4 class="font-medium text-slate-800 dark:text-white mb-1 leading-snug pointer-events-none text-sm sm:text-base">${task.title}</h4>
+                ${task.description ? `<p class="text-[13px] sm:text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-2 pointer-events-none">${task.description}</p>` : ''}
+                ${badgeHTML}
+            `;
+            div.addEventListener('click', (e) => { if (e.target.closest('button')) return; if (Date.now() - lastDragEndTime < 100) return; openTaskModal(task.id); });
+            div.addEventListener('dragstart', handleDragStart); div.addEventListener('dragend', handleDragEnd);
+            return div;
+        }
+
+        // --- RENDER LISTA DE PRAZOS ---
+        function renderDeadlineView() {
+            const container = document.getElementById('deadline-container'); container.innerHTML = '';
+            const tasksWithDeadline = tasks.filter(t => t.dueDate).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            if (tasksWithDeadline.length === 0) {
+                container.innerHTML = `<div class="w-full flex flex-col items-center justify-center mt-12 text-slate-400 dark:text-slate-500 bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 border-dashed text-center"><i class="ph ph-coffee text-5xl mb-3 text-slate-300 dark:text-slate-600"></i><p class="font-medium text-slate-600 dark:text-slate-400">Nenhuma tarefa com prazo.</p></div>`;
+                return;
+            }
+
+            const activeTasks = []; const completedTasks = [];
+            tasksWithDeadline.forEach(t => isDoneColumn((columns.find(c => c.id === t.columnId) || columns[0]).name) ? completedTasks.push(t) : activeTasks.push(t));
+
+            activeTasks.forEach(task => container.appendChild(createDeadlineCard(task, false)));
+            if (completedTasks.length > 0) {
+                const separator = document.createElement('div'); separator.className = 'mt-6 mb-2 border-t border-slate-200 dark:border-slate-700 pt-6';
+                separator.innerHTML = `<h3 class="text-xs sm:text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-2"><i class="ph ph-check-circle text-lg"></i> Tarefas Concluídas</h3>`;
+                container.appendChild(separator);
+                completedTasks.forEach(task => container.appendChild(createDeadlineCard(task, true)));
+            }
+        }
+
+        function createDeadlineCard(task, isCompleted) {
+            const col = columns.find(c => c.id === task.columnId) || columns[0]; const theme = THEMES[col.theme] || THEMES.slate; const timeInfo = getTimeRemaining(task.dueDate);
+            const card = document.createElement('div');
+            card.className = `bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md transition-all cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${isCompleted ? 'opacity-60 grayscale-[50%]' : ''}`;
+            card.innerHTML = `
+                <div class="flex items-start gap-3 sm:gap-4 flex-1 pointer-events-none">
+                    <div class="w-1.5 h-12 rounded-full ${theme.dot} shrink-0 mt-1"></div>
+                    <div class="flex flex-col flex-1">
+                        <div class="flex items-start sm:items-center gap-2 mb-1 flex-col sm:flex-row">
+                            <h4 class="font-bold text-slate-800 dark:text-white text-base sm:text-lg leading-tight ${isCompleted ? 'line-through text-slate-500' : ''}">${task.title}</h4>
+                            <span class="${theme.badgeBg} ${theme.badgeText} text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide border border-white/50 dark:border-slate-700/50">${col.name}</span>
+                        </div>
+                        ${task.description ? `<p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-1 ${isCompleted ? 'line-through' : ''}">${task.description}</p>` : ''}
+                    </div>
+                </div>
+                <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 sm:w-auto w-full border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 dark:border-slate-700">
+                    <div class="flex flex-col sm:items-end gap-1 pointer-events-none">
+                        <span class="text-[11px] sm:text-xs font-semibold text-slate-400 dark:text-slate-500">Até ${formatDateToBR(task.dueDate)}</span>
+                        ${isCompleted ? `<div class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border shadow-sm text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 border-slate-200 dark:border-slate-600"><i class="ph ph-check-circle text-sm"></i><span>Concluída</span></div>` : `<div class="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg border shadow-sm ${timeInfo.colorClass}"><i class="ph ${timeInfo.icon} text-sm"></i><span>${timeInfo.text}</span></div>`}
+                    </div>
+                    <button onclick="requestDeleteTask(event, '${task.id}')" class="text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-100 sm:opacity-0 group-hover:opacity-100 bg-slate-50 dark:bg-slate-700 hover:bg-red-50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-600 shrink-0"><i class="ph ph-trash text-lg"></i></button>
+                </div>
+            `;
+            card.addEventListener('click', (e) => { if (!e.target.closest('button')) openTaskModal(task.id); }); return card;
+        }
+
+        // --- RENDER CALENDÁRIO ---
+        function renderCalendarView() {
+            const calEl = document.getElementById('calendar');
+            if (!calendar) {
+                calendar = new FullCalendar.Calendar(calEl, {
+                    initialView: window.innerWidth < 640 ? 'listMonth' : 'dayGridMonth',
+                    locale: 'pt-br',
+                    headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,listMonth' },
+                    buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', list: 'Lista' },
+                    height: '100%',
+                    events: function(info, successCallback, failureCallback) {
+                        const formattedEvents = events.map(ev => {
+                            const theme = THEMES[ev.theme] || THEMES.blue;
+                            return { id: ev.id, title: ev.title, start: ev.start, end: ev.end, backgroundColor: theme.hex, borderColor: theme.hex, extendedProps: { description: ev.description } };
+                        });
+                        successCallback(formattedEvents);
+                    },
+                    eventClick: function(info) { openEventModal(info.event.id); },
+                    dateClick: function(info) {
+                        const now = new Date();
+                        const start = new Date(info.date); start.setHours(now.getHours(), 0, 0, 0);
+                        const end = new Date(start); end.setHours(end.getHours() + 1);
+                        
+                        // Ajuste de Timezone local para preencher o input datetime-local corretamente
+                        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+                        const localStart = (new Date(start - tzoffset)).toISOString().slice(0, 16);
+                        const localEnd = (new Date(end - tzoffset)).toISOString().slice(0, 16);
+                        
+                        openEventModal(null, localStart, localEnd);
+                    }
+                });
+                calendar.render();
+            } else {
+                calendar.setOption('initialView', window.innerWidth < 640 ? 'listMonth' : 'dayGridMonth');
+                calendar.render(); // Força re-render para adaptar tema escuro
+            }
+        }
+
+        // --- ARRASTAR E SOLTAR ---
+        function handleColDragStart(e) { if (e.target.closest('.column-drop-zone > div')) return; draggedColId = this.getAttribute('data-col-id'); e.dataTransfer.effectAllowed = 'move'; setTimeout(() => this.classList.add('opacity-50'), 0); }
+        function handleColDragEnd(e) { this.classList.remove('opacity-50'); draggedColId = null; document.querySelectorAll('.board-column').forEach(col => col.classList.remove('ring-2', 'ring-indigo-400', 'ring-offset-2', 'dark:ring-indigo-500', 'dark:ring-offset-slate-900')); lastDragEndTime = Date.now(); }
+        function handleColDragOver(e) { if (!draggedColId || draggedColId === this.getAttribute('data-col-id')) return; e.preventDefault(); this.classList.add('ring-2', 'ring-indigo-400', 'ring-offset-2', 'dark:ring-indigo-500', 'dark:ring-offset-slate-900'); }
+        function handleColDragLeave(e) { this.classList.remove('ring-2', 'ring-indigo-400', 'ring-offset-2', 'dark:ring-indigo-500', 'dark:ring-offset-slate-900'); }
+        function handleColDrop(e) {
+            if (!draggedColId) return; e.preventDefault(); e.stopPropagation();
+            const targetColId = this.getAttribute('data-col-id'); this.classList.remove('ring-2', 'ring-indigo-400', 'ring-offset-2', 'dark:ring-indigo-500', 'dark:ring-offset-slate-900');
+            if (draggedColId !== targetColId) {
+                const dIdx = columns.findIndex(c => c.id === draggedColId); const tIdx = columns.findIndex(c => c.id === targetColId);
+                const [dItem] = columns.splice(dIdx, 1); columns.splice(tIdx, 0, dItem); saveData(); renderBoard();
+            }
+        }
+        function handleDragStart(e) { e.stopPropagation(); draggedTaskId = this.id; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => this.classList.add('dragging'), 0); }
+        function handleDragEnd(e) { this.classList.remove('dragging'); draggedTaskId = null; document.querySelectorAll('.column-drop-zone').forEach(col => col.classList.remove('drag-over')); lastDragEndTime = Date.now(); }
+        function handleDragOver(e) { if (!draggedTaskId) return; e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'move'; this.classList.add('drag-over'); }
+        function handleDragLeave(e) { if (!draggedTaskId) return; this.classList.remove('drag-over'); }
+        function handleDrop(e) {
+            if (!draggedTaskId) return; e.preventDefault(); e.stopPropagation(); this.classList.remove('drag-over');
+            const newColId = this.getAttribute('data-column-id'); const tIdx = tasks.findIndex(t => t.id === draggedTaskId);
+            if (tIdx > -1 && tasks[tIdx].columnId !== newColId) { tasks[tIdx].columnId = newColId; saveData(); renderBoard(); }
+        }
+
+        // --- MODAIS E FORMULÁRIOS ---
+        
+        // Tarefas
+        function openTaskModal(taskId = null) {
+            if (columns.length === 0) return showConfirm('Aviso', 'Crie uma coluna primeiro.', null);
+            document.getElementById('taskForm').reset();
+            const sel = document.getElementById('taskColumnSelect'); sel.innerHTML = '';
+            columns.forEach(c => { const opt = document.createElement('option'); opt.value = c.id; opt.textContent = c.name; sel.appendChild(opt); });
+            if (taskId) {
+                const t = tasks.find(x => x.id === taskId);
+                if (t) {
+                    document.getElementById('taskId').value = t.id; document.getElementById('taskTitle').value = t.title; document.getElementById('taskDesc').value = t.description || '';
+                    sel.value = t.columnId; document.getElementById('taskDueDate').value = t.dueDate || ''; document.getElementById('taskModalTitle').innerHTML = '<i class="ph ph-card-text text-indigo-500"></i> Editar Tarefa';
+                }
+            } else {
+                document.getElementById('taskId').value = ''; document.getElementById('taskModalTitle').innerHTML = '<i class="ph ph-card-text text-indigo-500"></i> Nova Tarefa'; sel.value = columns[0].id; document.getElementById('taskDueDate').value = '';
+            }
+            const m = document.getElementById('taskModal'); m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => { document.getElementById('taskModalContent').classList.add('modal-enter-active'); document.getElementById('taskTitle').focus(); }, 10);
+        }
+        function closeTaskModal() {
+            document.getElementById('taskModalContent').classList.remove('modal-enter-active');
+            setTimeout(() => { const m = document.getElementById('taskModal'); m.classList.add('hidden'); m.classList.remove('flex'); }, 200);
+        }
+        document.getElementById('taskForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('taskId').value; const title = document.getElementById('taskTitle').value.trim(); const desc = document.getElementById('taskDesc').value.trim(); const colId = document.getElementById('taskColumnSelect').value; const dueDate = document.getElementById('taskDueDate').value;
+            if (id) {
+                const i = tasks.findIndex(t => t.id === id);
+                if (i > -1) { tasks[i] = { ...tasks[i], title, description: desc, columnId: colId, dueDate: dueDate || null }; }
+            } else {
+                tasks.push({ id: 'task_' + Date.now(), title, description: desc, columnId: colId, date: new Date().toLocaleDateString('pt-BR'), dueDate: dueDate || null });
+            }
+            saveData(); refreshActiveView(); closeTaskModal(); showToast('Sucesso', 'Tarefa salva com sucesso.');
+        });
+
+        // Colunas
+        function renderColorPicker(containerId, inputId, activeTheme = 'slate') {
+            const container = document.getElementById(containerId); container.innerHTML = ''; document.getElementById(inputId).value = activeTheme;
+            Object.keys(THEMES).forEach(k => {
+                const t = THEMES[k]; const btn = document.createElement('button'); btn.type = 'button'; const isAct = k === activeTheme;
+                btn.className = `flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all ${isAct ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-700'}`;
+                btn.onclick = () => { document.getElementById(inputId).value = k; container.querySelectorAll('button').forEach(b => { b.classList.remove('border-indigo-600', 'bg-indigo-50', 'dark:bg-indigo-900/30'); b.classList.add('border-transparent'); }); btn.classList.add('border-indigo-600', 'bg-indigo-50', 'dark:bg-indigo-900/30'); btn.classList.remove('border-transparent'); };
+                btn.innerHTML = `<div class="w-6 h-6 rounded-full ${t.dot} mb-1"></div><span class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">${t.name}</span>`; container.appendChild(btn);
+            });
+        }
+        function openColumnModal(colId = null) {
+            document.getElementById('columnForm').reset();
+            if (colId) {
+                const c = columns.find(x => x.id === colId); document.getElementById('columnId').value = c.id; document.getElementById('columnName').value = c.name; renderColorPicker('colorPicker', 'columnTheme', c.theme); document.getElementById('columnModalTitle').innerText = 'Editar Coluna'; document.getElementById('columnSubmitBtn').innerText = 'Salvar';
+            } else {
+                document.getElementById('columnId').value = ''; renderColorPicker('colorPicker', 'columnTheme', 'slate'); document.getElementById('columnModalTitle').innerText = 'Criar Coluna'; document.getElementById('columnSubmitBtn').innerText = 'Criar';
+            }
+            const m = document.getElementById('columnModal'); m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => { document.getElementById('columnModalContent').classList.add('modal-enter-active'); document.getElementById('columnName').focus(); }, 10);
+        }
+        function closeColumnModal() {
+            document.getElementById('columnModalContent').classList.remove('modal-enter-active');
+            setTimeout(() => { const m = document.getElementById('columnModal'); m.classList.add('hidden'); m.classList.remove('flex'); }, 200);
+        }
+        document.getElementById('columnForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('columnId').value; const name = document.getElementById('columnName').value.trim(); const theme = document.getElementById('columnTheme').value;
+            if (name) {
+                if (id) { const i = columns.findIndex(c => c.id === id); if (i > -1) { columns[i].name = name; columns[i].theme = theme; } }
+                else { columns.push({ id: 'col_' + Date.now(), name, theme }); }
+                saveData(); refreshActiveView(); closeColumnModal(); showToast('Sucesso', 'Coluna salva com sucesso.');
+            }
+        });
+
+        // Eventos (Agenda e Lembretes)
+        function toggleReminderOptions() {
+            const toggle = document.getElementById('eventReminderToggle');
+            const opts = document.getElementById('reminderOptions');
+            if(toggle.checked) opts.classList.remove('hidden');
+            else opts.classList.add('hidden');
+            requestNotificationPermission(); // Pede permissão se ativou
+        }
+
+        function openEventModal(eventId = null, defaultStart = '', defaultEnd = '') {
+            document.getElementById('eventForm').reset();
+            document.getElementById('reminderOptions').classList.add('hidden');
+            
+            if (eventId) {
+                const e = events.find(x => x.id === eventId);
+                if (e) {
+                    document.getElementById('eventId').value = e.id; document.getElementById('eventTitle').value = e.title;
+                    document.getElementById('eventStart').value = e.start; document.getElementById('eventEnd').value = e.end;
+                    document.getElementById('eventDesc').value = e.description || '';
+                    renderColorPicker('eventColorPicker', 'eventTheme', e.theme || 'blue');
+                    
+                    if(e.reminder) {
+                        document.getElementById('eventReminderToggle').checked = true;
+                        document.getElementById('reminderOptions').classList.remove('hidden');
+                        document.getElementById('reminderValue').value = e.reminder.value;
+                        document.getElementById('reminderUnit').value = e.reminder.unit;
+                    }
+                    
+                    document.getElementById('eventModalTitle').innerHTML = '<i class="ph ph-calendar-star text-indigo-500"></i> Editar Evento';
+                    document.getElementById('deleteEventBtn').classList.remove('hidden');
+                    document.getElementById('shareEventBtn').classList.remove('hidden');
+                }
+            } else {
+                document.getElementById('eventId').value = '';
+                document.getElementById('eventStart').value = defaultStart; document.getElementById('eventEnd').value = defaultEnd;
+                renderColorPicker('eventColorPicker', 'eventTheme', 'blue');
+                document.getElementById('eventModalTitle').innerHTML = '<i class="ph ph-calendar-star text-indigo-500"></i> Novo Evento';
+                document.getElementById('deleteEventBtn').classList.add('hidden');
+                document.getElementById('shareEventBtn').classList.add('hidden');
+            }
+            const m = document.getElementById('eventModal'); m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => { document.getElementById('eventModalContent').classList.add('modal-enter-active'); document.getElementById('eventTitle').focus(); }, 10);
+        }
+        function closeEventModal() {
+            document.getElementById('eventModalContent').classList.remove('modal-enter-active');
+            setTimeout(() => { const m = document.getElementById('eventModal'); m.classList.add('hidden'); m.classList.remove('flex'); }, 200);
+        }
+        document.getElementById('eventForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('eventId').value; const title = document.getElementById('eventTitle').value.trim();
+            const start = document.getElementById('eventStart').value; const end = document.getElementById('eventEnd').value;
+            const desc = document.getElementById('eventDesc').value.trim(); const theme = document.getElementById('eventTheme').value;
+            
+            let reminder = null;
+            if(document.getElementById('eventReminderToggle').checked) {
+                reminder = {
+                    value: parseInt(document.getElementById('reminderValue').value) || 15,
+                    unit: document.getElementById('reminderUnit').value
+                };
+            }
+
+            if (new Date(end) <= new Date(start)) { showToast('Erro', 'A data de fim deve ser depois do início.', 'error'); return; }
+
+            const newEvent = { id: id || 'event_' + Date.now(), title, start, end, description: desc, theme, reminder, reminderSent: false };
+
+            if (id) { const i = events.findIndex(x => x.id === id); if (i > -1) events[i] = newEvent; }
+            else { events.push(newEvent); }
+
+            saveData(); if(calendar) calendar.refetchEvents(); closeEventModal(); showToast('Agenda', 'Evento salvo com sucesso.');
+        });
+
+        // Importar / Exportar (Código Mágico)
+        function shareEvent() {
+            const id = document.getElementById('eventId').value;
+            const ev = events.find(x => x.id === id);
+            if(ev) {
+                // Remove propriedades internas para envio limpo
+                const exportObj = { ...ev };
+                delete exportObj.reminderSent;
+                
+                const code = JSON.stringify(exportObj);
+                navigator.clipboard.writeText(code).then(() => {
+                    showToast('Copiado!', 'Código do evento copiado. Envie para seu amigo colar no Kanban dele.');
+                }).catch(() => {
+                    // Fallback
+                    const textArea = document.createElement("textarea"); textArea.value = code; document.body.appendChild(textArea); textArea.select(); document.execCommand("Copy"); textArea.remove();
+                    showToast('Copiado!', 'Código do evento copiado.');
+                });
+            }
+        }
+
+        function openImportModal() {
+            document.getElementById('importCodeInput').value = '';
+            const m = document.getElementById('importModal'); m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => { document.getElementById('importModalContent').classList.add('modal-enter-active'); document.getElementById('importCodeInput').focus(); }, 10);
+        }
+        function closeImportModal() {
+            document.getElementById('importModalContent').classList.remove('modal-enter-active');
+            setTimeout(() => { const m = document.getElementById('importModal'); m.classList.add('hidden'); m.classList.remove('flex'); }, 200);
+        }
+        function executeImport() {
+            const code = document.getElementById('importCodeInput').value.trim();
+            try {
+                const ev = JSON.parse(code);
+                if(ev.id && ev.title && ev.start && ev.end) {
+                    // Previne duplicação forçando novo ID
+                    ev.id = 'event_' + Date.now();
+                    ev.reminderSent = false;
+                    events.push(ev);
+                    saveData(); if(calendar) calendar.refetchEvents(); closeImportModal();
+                    showToast('Sucesso', 'Evento de amigo adicionado à sua Agenda!');
+                } else { throw new Error('Formato inválido'); }
+            } catch(e) {
+                showToast('Erro', 'Código mágico inválido.', 'error');
+            }
+        }
+
+        // --- EXCLUSÕES E CONFIRMAÇÕES ---
+        function showConfirm(title, message, callback) {
+            document.getElementById('confirmTitle').innerText = title; document.getElementById('confirmMessage').innerText = message; confirmAction = callback;
+            const m = document.getElementById('confirmModal'); m.classList.remove('hidden'); m.classList.add('flex');
+            setTimeout(() => document.getElementById('confirmModalContent').classList.add('modal-enter-active'), 10);
+            const btns = m.querySelectorAll('button');
+            if(!callback) { btns[0].classList.add('hidden'); btns[1].innerText = 'Ok, entendi'; btns[1].classList.remove('bg-red-600', 'hover:bg-red-700'); btns[1].classList.add('bg-indigo-600', 'hover:bg-indigo-700'); }
+            else { btns[0].classList.remove('hidden'); btns[1].innerText = 'Sim, excluir'; btns[1].classList.add('bg-red-600', 'hover:bg-red-700'); btns[1].classList.remove('bg-indigo-600', 'hover:bg-indigo-700'); }
+        }
+        function closeConfirm() {
+            const c = document.getElementById('confirmModalContent'); if (c) c.classList.remove('modal-enter-active');
+            setTimeout(() => { const m = document.getElementById('confirmModal'); m.classList.add('hidden'); m.classList.remove('flex'); confirmAction = null; }, 200);
+        }
+        function executeConfirm() { if (confirmAction) confirmAction(); closeConfirm(); }
+
+        function requestDeleteTask(event, taskId) {
+            if (event) event.stopPropagation();
+            showConfirm('Excluir Tarefa', 'Tem certeza que deseja apagar este cartão?', () => { tasks = tasks.filter(t => t.id !== taskId); saveData(); refreshActiveView(); showToast('Removido', 'Tarefa apagada.'); });
+        }
+        function requestDeleteColumn(event, colId) {
+            if (event) event.stopPropagation();
+            const count = tasks.filter(t => t.columnId === colId).length;
+            let msg = count > 0 ? `Atenção: Existem ${count} tarefas nesta coluna. Elas serão apagadas permanentemente.` : 'Tem certeza que deseja apagar esta coluna?';
+            showConfirm('Excluir Coluna', msg, () => { columns = columns.filter(c => c.id !== colId); tasks = tasks.filter(t => t.columnId !== colId); saveData(); refreshActiveView(); showToast('Removido', 'Coluna apagada.'); });
+        }
+        function requestDeleteEvent() {
+            const id = document.getElementById('eventId').value;
+            if(id) {
+                showConfirm('Excluir Evento', 'Deseja remover este evento da sua agenda?', () => {
+                    events = events.filter(e => e.id !== id); saveData(); if(calendar) calendar.refetchEvents(); closeEventModal(); showToast('Removido', 'Evento apagado.');
+                });
+            }
+        }
+
+        // INIT
+        window.onload = function() { 
+            initThemeIcon(); loadData(); switchView('board'); 
+            requestNotificationPermission(); // Pede permissão para o bipe/aba piscar no primeiro load
+        };
+    </script>
+</body>
+</html>
